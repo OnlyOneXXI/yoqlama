@@ -129,7 +129,6 @@ tr.g td{background:#e8eef7;font-weight:700;color:#123a6b}
     <div class="hsub" id="h-sub"></div>
   </div>
   <div class="hright">
-    <div class="op">Оператор: <input id="op" placeholder="Ф.И.О." oninput="saveLocal()"></div>
     <button class="sync" onclick="openSettings()"><span class="dot off" id="sdot"></span><span id="stext">Синхронизация йўқ</span></button>
   </div>
  </div>
@@ -198,12 +197,11 @@ const CAT_ORDER = ['Вазирликлар','Қўмиталар','Агентли
 
 let state = {};        // { id: {status, comment, time, by, ts} }
 let operator = '';
-let cfg = {owner:'', repo:'', path:'attendance.json', branch:'main', token:''};
+let cfg = {owner:'OnlyOneXXI', repo:'yoqlama-data', path:'attendance.json', branch:'main', token:''};
 let syncTimer = null, pushTimer = null, syncing = false;
 
 /* ═══════════════ ЛОКАЛ САҚЛАШ ═══════════════ */
 function saveLocal(){
-  operator = document.getElementById('op').value;
   try{ localStorage.setItem(LOCAL_KEY, JSON.stringify({state, operator})); }catch(e){}
 }
 function loadLocal(){
@@ -341,7 +339,7 @@ function saveSettings(){
   msg('Сақланди. Уланмоқда…'); startSync();
 }
 function clearSettings(){
-  cfg = {owner:'', repo:'', path:'attendance.json', branch:'main', token:''};
+  cfg = {owner:'OnlyOneXXI', repo:'yoqlama-data', path:'attendance.json', branch:'main', token:''};
   localStorage.removeItem(CFG_KEY); clearInterval(syncTimer);
   setSync('off','Синхронизация йўқ'); msg('Уланиш ўчирилди.');
 }
@@ -433,7 +431,6 @@ function usedCats(){ return CAT_ORDER.filter(c => PERSONS.some(p => p.cat === c)
 
 function buildReport(){
   const c = counts(), gen = new Date().toLocaleString('ru-RU');
-  const op = document.getElementById('op').value || '—';
   let rows = '';
   usedCats().forEach(cat=>{
     const list = PERSONS.filter(p => p.cat === cat);
@@ -450,7 +447,7 @@ function buildReport(){
   });
   return '<div class="rtitle">ЙЎҚЛАМА ҲИСОБОТИ</div>' +
     '<div class="rsub">'+esc(EVENT.title)+' · '+esc(EVENT.subtitle)+'<br>'+esc(EVENT.date)+
-      ' · Оператор: '+esc(op)+' · Тузилди: '+gen+'</div>' +
+      ' · Тузилди: '+gen+'</div>' +
     '<div class="rstats">' +
       '<div class="rstat"><b>'+c.total+'</b>Жами</div>' +
       '<div class="rstat" style="color:#2b9e49"><b>'+c.came+'</b>Келди</div>' +
@@ -495,7 +492,7 @@ function exportCSV(){
 }
 function exportJSON(){
   saveLocal();
-  const out = {event: EVENT, operator: document.getElementById('op').value,
+  const out = {event: EVENT, operator: '',
                saved: new Date().toISOString(), records: {}};
   PERSONS.forEach(p=>{ const r = state[p.id] || {};
     out.records[p.id] = {org:p.org, fio:p.fio, status:r.status||null,
@@ -509,7 +506,6 @@ function importJSON(ev){
   r.onload = e=>{
     try{
       const o = JSON.parse(e.target.result);
-      if(o.operator) document.getElementById('op').value = o.operator;
       const inc = {};
       Object.keys(o.records||{}).forEach(id=>{ const rec = o.records[id];
         inc[id] = {status:rec.status||null, comment:rec.comment||'', time:rec.time||'',
@@ -536,8 +532,16 @@ document.getElementById('h-title').textContent = 'Тадбир йўқлама т
 document.getElementById('h-sub').textContent = EVENT.title + ' · ' + EVENT.subtitle + ' · ' + EVENT.date;
 document.title = 'Йўқлама — ' + EVENT.date;
 loadLocal();
+/* Ҳаволадаги #t=<токен> — автоматик созлаш: оператор ҳеч нарса киритмайди */
+(function(){
+  const m = location.hash.match(/[#&]t=([A-Za-z0-9_]+)/);
+  if(m){
+    cfg = {owner:'OnlyOneXXI', repo:'yoqlama-data', path:'attendance.json', branch:'main', token:m[1]};
+    try{ localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }catch(e){}
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+})();
 initCats();
-document.getElementById('op').value = operator;
 render();
 startSync();
 document.getElementById('modal').addEventListener('click', e=>{ if(e.target.id==='modal') closeSettings(); });
