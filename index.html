@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Тадбир йўқлама тизими</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Roboto,Arial,sans-serif;background:#eef1f6;color:#1f2733;font-size:15px}
+.sticky-wrap{position:sticky;top:0;z-index:50;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+header{background:linear-gradient(135deg,#123a6b,#1e5aa8);color:#fff;padding:12px 20px}
+.htop{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between}
+.htitle{font-size:18px;font-weight:700}
+.hsub{font-size:12.5px;opacity:.9;margin-top:2px}
+.hright{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.op{display:flex;align-items:center;gap:6px;font-size:13px}
+.op input{padding:6px 10px;border:none;border-radius:6px;font-size:14px;min-width:150px}
+.sync{display:flex;align-items:center;gap:6px;font-size:12px;background:rgba(255,255,255,.14);
+      border-radius:20px;padding:5px 12px;cursor:pointer;white-space:nowrap;border:none;color:#fff}
+.sync:hover{background:rgba(255,255,255,.24)}
+.dot{width:9px;height:9px;border-radius:50%;background:#8e9bb0;flex-shrink:0}
+.dot.ok{background:#34c759}.dot.busy{background:#ffd60a;animation:pulse 1s infinite}
+.dot.err{background:#ff453a}.dot.off{background:#8e9bb0}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.stats{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.stat{background:rgba(255,255,255,.14);border-radius:8px;padding:6px 12px;min-width:92px;text-align:center}
+.stat b{display:block;font-size:20px;line-height:1.1}
+.stat span{font-size:11px;opacity:.9}
+.s-came{border-bottom:3px solid #34c759}
+.s-sub{border-bottom:3px solid #ff9f0a}
+.s-no{border-bottom:3px solid #ff453a}
+.s-none{border-bottom:3px solid #8e9bb0}
+.controls{display:flex;flex-wrap:wrap;gap:8px;padding:12px 20px;background:#fff;border-bottom:1px solid #dbe1ea}
+.controls input,.controls select{padding:8px 10px;border:1px solid #c6cfdb;border-radius:7px;font-size:14px}
+.controls input[type=text]{flex:1;min-width:180px}
+.btn{padding:8px 14px;border:none;border-radius:7px;font-size:14px;font-weight:600;cursor:pointer;color:#fff}
+.btn-rep{background:#123a6b}.btn-prn{background:#c0392b}.btn-exp{background:#2f855a}
+.btn-imp{background:#6b46c1}.btn-set{background:#546a86}.btn-gray{background:#8494ab}
+.wrap{padding:16px 20px;max-width:1250px;margin:0 auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px}
+.card{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(20,40,80,.08);padding:14px;
+      display:flex;flex-direction:column;gap:10px;border-left:5px solid #8e9bb0;transition:border-color .2s}
+.card.came{border-left-color:#34c759}.card.sub{border-left-color:#ff9f0a}.card.no{border-left-color:#ff453a}
+.card.vacant{opacity:.72;background:#fbfbfc}
+.crow{display:flex;gap:12px}
+.photo{width:74px;height:92px;border-radius:8px;object-fit:cover;background:#dfe4ec;flex-shrink:0}
+.nophoto{width:74px;height:92px;border-radius:8px;background:#dfe4ec;display:flex;align-items:center;
+         justify-content:center;color:#8494ab;font-size:26px;flex-shrink:0}
+.pinfo{flex:1;min-width:0}
+.pnum{font-size:11px;color:#8494ab;font-weight:700}
+.porg{font-weight:700;color:#123a6b;font-size:14px;margin:1px 0 4px}
+.pfio{font-size:13px;line-height:1.35;font-weight:600}
+.pmeta{font-size:11.5px;color:#667;margin-top:3px;line-height:1.35}
+.btns{display:flex;gap:6px}
+.sbtn{flex:1;min-height:44px;padding:8px 4px;border:1.5px solid #c6cfdb;background:#f6f8fb;border-radius:8px;
+      font-size:13px;font-weight:600;cursor:pointer;color:#3a475a;-webkit-tap-highlight-color:transparent}
+.sbtn.on-came{background:#34c759;border-color:#34c759;color:#fff}
+.sbtn.on-sub{background:#ff9f0a;border-color:#ff9f0a;color:#fff}
+.sbtn.on-no{background:#ff453a;border-color:#ff453a;color:#fff}
+.cmt{width:100%;border:1px solid #c6cfdb;border-radius:8px;padding:7px 9px;font-size:13px;
+     font-family:inherit;resize:vertical;min-height:38px}
+.tstamp{font-size:11px;color:#8494ab}
+.empty{text-align:center;color:#8494ab;padding:40px}
+#report{display:none;position:fixed;inset:0;background:#fff;z-index:100;overflow:auto;padding:30px 40px}
+.rtitle{font-size:21px;font-weight:800;color:#123a6b;text-align:center;margin-bottom:2px}
+.rsub{text-align:center;color:#445;margin-bottom:16px;font-size:13.5px}
+.rstats{display:flex;gap:10px;justify-content:center;margin-bottom:18px;flex-wrap:wrap}
+.rstat{border:1px solid #c6cfdb;border-radius:8px;padding:8px 16px;text-align:center}
+.rstat b{display:block;font-size:22px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{border:1px solid #c6cfdb;padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#123a6b;color:#fff}
+tr.g td{background:#e8eef7;font-weight:700;color:#123a6b}
+.badge{padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;color:#fff;display:inline-block}
+.b-came{background:#34c759}.b-sub{background:#ff9f0a}.b-no{background:#ff453a}.b-none{background:#8e9bb0}
+.rbtns{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+/* модал */
+#modal{display:none;position:fixed;inset:0;background:rgba(15,25,45,.55);z-index:200;
+       align-items:center;justify-content:center;padding:16px}
+.mbox{background:#fff;border-radius:14px;max-width:560px;width:100%;padding:22px;max-height:90vh;overflow:auto}
+.mbox h3{color:#123a6b;margin-bottom:4px;font-size:18px}
+.mbox p.hint{font-size:12.5px;color:#667;margin-bottom:14px;line-height:1.5}
+.fld{margin-bottom:11px}
+.fld label{display:block;font-size:12px;font-weight:700;color:#3a475a;margin-bottom:4px}
+.fld input{width:100%;padding:9px 11px;border:1px solid #c6cfdb;border-radius:8px;font-size:14px;font-family:inherit}
+.mnote{background:#fff6e5;border-left:4px solid #ff9f0a;padding:10px 12px;border-radius:6px;
+       font-size:12.5px;line-height:1.5;margin:12px 0}
+.mbtns{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+@media(max-width:600px){
+ header{padding:10px 12px}
+ .htitle{font-size:16px}.hsub{font-size:11.5px}
+ .hright{width:100%}
+ .op{flex:1}.op input{flex:1;min-width:0;padding:9px 10px}
+ .stats{gap:6px;margin-top:8px}
+ .stat{min-width:0;flex:1 1 calc(33.33% - 4px);padding:6px 4px}
+ .stat b{font-size:18px}.stat span{font-size:10px}
+ .controls{padding:10px 12px;gap:6px}
+ .controls input[type=text]{flex:1 1 100%}
+ .controls select{flex:1 1 calc(50% - 3px);min-width:0}
+ .btn{flex:1 1 calc(50% - 3px);text-align:center;padding:11px 8px}
+ .controls input,.controls select,.cmt,#search{font-size:16px}
+ .wrap{padding:12px}
+ .grid{grid-template-columns:1fr;gap:12px}
+ .card{padding:12px}
+ .photo,.nophoto{width:66px;height:82px}
+ .sbtn{padding:12px 4px;min-height:48px}
+ #report{padding:16px 12px}
+ .rbtns .btn{flex:1 1 100%}
+ table{font-size:11px}
+ th,td{padding:5px 5px}
+}
+@media print{
+ .sticky-wrap,header,.controls,.wrap,.rbtns{display:none!important}
+ #report{position:static;padding:0;display:block!important}
+ body{background:#fff;font-size:11px}
+ th{background:#123a6b!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ .badge,.rstat,tr.g td{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ tr{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+
+<div class="sticky-wrap">
+<header>
+ <div class="htop">
+  <div>
+    <div class="htitle">📋 <span id="h-title">Тадбир йўқлама тизими</span></div>
+    <div class="hsub" id="h-sub"></div>
+  </div>
+  <div class="hright">
+    <div class="op">Оператор: <input id="op" placeholder="Ф.И.О." oninput="saveLocal()"></div>
+    <button class="sync" onclick="openSettings()"><span class="dot off" id="sdot"></span><span id="stext">Синхронизация йўқ</span></button>
+  </div>
+ </div>
+ <div class="stats">
+  <div class="stat"><b id="st-total">0</b><span>Жами</span></div>
+  <div class="stat s-came"><b id="st-came">0</b><span>Келди</span></div>
+  <div class="stat s-sub"><b id="st-sub">0</b><span>Ўрнига вакил</span></div>
+  <div class="stat s-no"><b id="st-no">0</b><span>Келмади</span></div>
+  <div class="stat s-none"><b id="st-none">0</b><span>Белгиланмаган</span></div>
+ </div>
+</header>
+
+<div class="controls">
+  <input type="text" id="search" placeholder="🔍 Ташкилот, Ф.И.О. ёки рақам бўйича қидириш..." oninput="render()">
+  <select id="fcat" onchange="render()"><option value="">Барча тоифалар</option></select>
+  <select id="fstat" onchange="render()">
+    <option value="">Барча ҳолатлар</option>
+    <option value="came">Келди</option>
+    <option value="sub">Ўрнига вакил келди</option>
+    <option value="no">Келмади</option>
+    <option value="none">Белгиланмаган</option>
+  </select>
+  <button class="btn btn-rep" onclick="openReport()">📊 Ҳисобот</button>
+  <button class="btn btn-prn" onclick="printReport()">🖨 Чоп этиш / PDF</button>
+  <button class="btn btn-exp" onclick="exportCSV()">📗 Excel (CSV)</button>
+  <button class="btn btn-exp" onclick="exportJSON()">💾 Заҳира</button>
+  <button class="btn btn-imp" onclick="document.getElementById('imp').click()">📁 Юклаш</button>
+  <button class="btn btn-set" onclick="openSettings()">⚙ Созламалар</button>
+  <input type="file" id="imp" accept=".json" style="display:none" onchange="importJSON(event)">
+</div>
+</div>
+
+<div class="wrap"><div class="grid" id="grid"></div></div>
+<div id="report"></div>
+
+<div id="modal">
+  <div class="mbox">
+    <h3>⚙ Умумий синхронизация (GitHub)</h3>
+    <p class="hint">Барча операторлар битта GitHub омборига ёзади — белгилар ҳамма қурилмада кўринади.
+       Токен фақат шу браузерда сақланади, сайт кодига тушмайди.</p>
+    <div class="fld"><label>GitHub логин (owner)</label><input id="cf-owner" placeholder="masalan: suxrob"></div>
+    <div class="fld"><label>Маълумот омбори (repo)</label><input id="cf-repo" placeholder="yoqlama-data"></div>
+    <div class="fld"><label>Файл номи (path)</label><input id="cf-path" placeholder="attendance.json"></div>
+    <div class="fld"><label>Тармоқ (branch)</label><input id="cf-branch" placeholder="main"></div>
+    <div class="fld"><label>Токен (Personal access token)</label><input id="cf-token" type="password" placeholder="github_pat_..."></div>
+    <div class="mnote"><b>Диққат:</b> токенни ҳеч кимга юборманг. Токен фақат шу компьютернинг браузерида
+      сақланади. Тадбир тугагач GitHub'да токенни ўчириб қўйинг.</div>
+    <div class="mbtns">
+      <button class="btn btn-exp" onclick="saveSettings()">✔ Сақлаш ва уланиш</button>
+      <button class="btn btn-rep" onclick="syncNow(true)">🔄 Ҳозир синхронлаш</button>
+      <button class="btn btn-gray" onclick="closeSettings()">Ёпиш</button>
+      <button class="btn btn-prn" onclick="clearSettings()">Уланишни ўчириш</button>
+    </div>
+    <p class="hint" id="cf-msg" style="margin-top:12px"></p>
+  </div>
+</div>
+
+<script src="persons.js"></script>
+<script>
+/* ═══════════════ ҲОЛАТ ═══════════════ */
+const LOCAL_KEY = 'yoqlama_v3_state';
+const CFG_KEY   = 'yoqlama_v3_cfg';
+const LABELS = {came:'Келди', sub:'Ўрнига вакил келди', no:'Келмади', none:'Белгиланмаган'};
+const CAT_ORDER = ['Вазирликлар','Қўмиталар','Агентликлар','Инспекциялар','Банклар',
+                   'Бошқа ташкилотлар','Уюшмалар','Акциядорлик жамиятлари','Рўйхатда кўрсатилмаган'];
+
+let state = {};        // { id: {status, comment, time, by, ts} }
+let operator = '';
+let cfg = {owner:'', repo:'', path:'attendance.json', branch:'main', token:''};
+let syncTimer = null, pushTimer = null, syncing = false;
+
+/* ═══════════════ ЛОКАЛ САҚЛАШ ═══════════════ */
+function saveLocal(){
+  operator = document.getElementById('op').value;
+  try{ localStorage.setItem(LOCAL_KEY, JSON.stringify({state, operator})); }catch(e){}
+}
+function loadLocal(){
+  try{
+    const raw = localStorage.getItem(LOCAL_KEY);
+    if(raw){ const o = JSON.parse(raw); state = o.state || {}; operator = o.operator || ''; }
+    const c = localStorage.getItem(CFG_KEY);
+    if(c) cfg = Object.assign(cfg, JSON.parse(c));
+  }catch(e){}
+}
+
+/* ═══════════════ БЕЛГИЛАШ ═══════════════ */
+function nowStr(){ const d=new Date(), p=n=>String(n).padStart(2,'0');
+  return p(d.getHours())+':'+p(d.getMinutes()); }
+
+function setStatus(id, st){
+  const cur = state[id] || {};
+  if(cur.status === st) st = null;                 // қайта босилса — бекор қилинади
+  state[id] = {status:st, comment:cur.comment||'', time: st ? nowStr() : '',
+               by: operator || cur.by || '', ts: Date.now()};
+  saveLocal(); render(); schedulePush();
+}
+function setComment(id, val){
+  const cur = state[id] || {};
+  state[id] = {status:cur.status||null, comment:val, time:cur.time||'',
+               by: operator || cur.by || '', ts: Date.now()};
+  saveLocal(); updateStats(); schedulePush();
+}
+
+/* ═══════════════ GITHUB СИНХРОНИЗАЦИЯ ═══════════════ */
+function ghReady(){ return !!(cfg.owner && cfg.repo && cfg.path && cfg.token); }
+function ghUrl(){ return `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURIComponent(cfg.path)}`; }
+function ghHeaders(){ return {'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json',
+                              'X-GitHub-Api-Version':'2022-11-28'}; }
+
+function b64enc(str){
+  const bytes = new TextEncoder().encode(str); let bin='';
+  for(let i=0;i<bytes.length;i+=0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i,i+0x8000));
+  return btoa(bin);
+}
+function b64dec(b64){
+  const bin = atob(String(b64).replace(/\s/g,''));
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+function setSync(kind, text){
+  document.getElementById('sdot').className = 'dot ' + kind;
+  document.getElementById('stext').textContent = text;
+}
+/* Ҳар бир ёзув учун энг сўнгги ўзгариш ғолиб (ts бўйича) */
+function mergeRecords(remote, local){
+  const out = {}, ids = new Set([...Object.keys(remote||{}), ...Object.keys(local||{})]);
+  ids.forEach(id=>{
+    const r = (remote||{})[id], l = (local||{})[id];
+    if(!r) out[id] = l; else if(!l) out[id] = r;
+    else out[id] = ((l.ts||0) >= (r.ts||0)) ? l : r;
+  });
+  return out;
+}
+async function ghRead(){
+  const r = await fetch(ghUrl()+`?ref=${cfg.branch}&_=${Date.now()}`, {headers: ghHeaders(), cache:'no-store'});
+  if(r.status === 404) return {records:{}, sha:null};
+  if(r.status === 401) throw new Error('Токен нотўғри ёки муддати тугаган (401)');
+  if(r.status === 403) throw new Error('Рухсат йўқ ёки лимит (403)');
+  if(!r.ok) throw new Error('GitHub GET '+r.status);
+  const j = await r.json();
+  let data = {records:{}};
+  try{ data = JSON.parse(b64dec(j.content)); }catch(e){}
+  return {records: data.records || {}, sha: j.sha};
+}
+async function ghWrite(records, sha){
+  const payload = {event: window.EVENT, updated: new Date().toISOString(), records};
+  const body = {message:`йўқлама: ${operator||'аноним'} — ${new Date().toLocaleString('ru-RU')}`,
+                content: b64enc(JSON.stringify(payload, null, 1)), branch: cfg.branch};
+  if(sha) body.sha = sha;
+  const r = await fetch(ghUrl(), {method:'PUT', headers: Object.assign({'Content-Type':'application/json'}, ghHeaders()),
+                                  body: JSON.stringify(body)});
+  if(r.status === 409 || r.status === 422) return 'conflict';
+  if(!r.ok) throw new Error('GitHub PUT '+r.status);
+  return 'ok';
+}
+async function syncNow(manual){
+  if(!ghReady()){ setSync('off','Синхронизация йўқ'); return; }
+  if(syncing) return;
+  syncing = true; setSync('busy','Синхронлашмоқда…');
+  try{
+    for(let attempt=0; attempt<2; attempt++){
+      const {records:remote, sha} = await ghRead();
+      const before = JSON.stringify(state);
+      const merged = mergeRecords(remote, state);
+      state = merged;
+      if(JSON.stringify(state) !== before){ saveLocal(); safeRender(); }
+      if(JSON.stringify(remote) === JSON.stringify(merged)){
+        setSync('ok','Синхрон ✓ '+nowStr()); break;               // ўзгариш йўқ — ёзмаймиз
+      }
+      const res = await ghWrite(merged, sha);
+      if(res === 'ok'){ setSync('ok','Синхрон ✓ '+nowStr()); break; }
+      // conflict — қайта уриниб кўрамиз
+    }
+    if(manual) msg('Синхронизация муваффақиятли.');
+  }catch(e){
+    setSync('err','Хато: '+e.message);
+    if(manual) msg('❌ '+e.message);
+  }finally{ syncing = false; }
+}
+function schedulePush(){
+  if(!ghReady()) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(()=>syncNow(false), 1500);   // ўзгаришдан 1.5 сониядан кейин
+}
+function startSync(){
+  clearInterval(syncTimer);
+  if(!ghReady()){ setSync('off','Синхронизация йўқ'); return; }
+  syncNow(false);
+  syncTimer = setInterval(()=>syncNow(false), 10000); // ҳар 10 сонияда
+}
+
+/* ═══════════════ СОЗЛАМАЛАР ═══════════════ */
+function openSettings(){
+  document.getElementById('cf-owner').value  = cfg.owner;
+  document.getElementById('cf-repo').value   = cfg.repo;
+  document.getElementById('cf-path').value   = cfg.path;
+  document.getElementById('cf-branch').value = cfg.branch;
+  document.getElementById('cf-token').value  = cfg.token;
+  msg(''); document.getElementById('modal').style.display = 'flex';
+}
+function closeSettings(){ document.getElementById('modal').style.display = 'none'; }
+function msg(t){ document.getElementById('cf-msg').textContent = t; }
+function saveSettings(){
+  cfg = {owner: v('cf-owner').trim(), repo: v('cf-repo').trim(),
+         path: v('cf-path').trim() || 'attendance.json',
+         branch: v('cf-branch').trim() || 'main', token: v('cf-token').trim()};
+  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+  msg('Сақланди. Уланмоқда…'); startSync();
+}
+function clearSettings(){
+  cfg = {owner:'', repo:'', path:'attendance.json', branch:'main', token:''};
+  localStorage.removeItem(CFG_KEY); clearInterval(syncTimer);
+  setSync('off','Синхронизация йўқ'); msg('Уланиш ўчирилди.');
+}
+function v(id){ return document.getElementById(id).value; }
+
+/* ═══════════════ ЧИЗИШ ═══════════════ */
+function counts(){
+  let came=0, sub=0, no=0;
+  PERSONS.forEach(p=>{ const s = state[p.id] && state[p.id].status;
+    if(s==='came') came++; else if(s==='sub') sub++; else if(s==='no') no++; });
+  return {came, sub, no, none: PERSONS.length-came-sub-no, total: PERSONS.length};
+}
+function updateStats(){
+  const c = counts();
+  document.getElementById('st-total').textContent = c.total;
+  document.getElementById('st-came').textContent  = c.came;
+  document.getElementById('st-sub').textContent   = c.sub;
+  document.getElementById('st-no').textContent    = c.no;
+  document.getElementById('st-none').textContent  = c.none;
+}
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                 .replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function render(){
+  updateStats();
+  const q  = document.getElementById('search').value.toLowerCase().trim();
+  const fc = document.getElementById('fcat').value;
+  const fs = document.getElementById('fstat').value;
+  const grid = document.getElementById('grid');
+  grid.innerHTML = ''; let shown = 0;
+
+  PERSONS.forEach(p=>{
+    const rec = state[p.id] || {}; const s = rec.status || 'none';
+    if(q && !(p.org.toLowerCase().includes(q) || p.fio.toLowerCase().includes(q) || String(p.id)===q)) return;
+    if(fc && p.cat !== fc) return;
+    if(fs && s !== fs) return;
+    shown++;
+
+    const cls = (s==='came'?'came':s==='sub'?'sub':s==='no'?'no':'') + (p.vacant?' vacant':'');
+    const photo = p.photo ? '<img class="photo" src="'+esc(p.photo)+'" alt="">'
+                          : '<div class="nophoto">👤</div>';
+    const meta = [p.born, p.phone ? '📞 '+p.phone : ''].filter(Boolean).join('<br>');
+    const mark = rec.time ? `<div class="tstamp">✓ ${esc(rec.time)}${rec.by?' · '+esc(rec.by):''}</div>` : '';
+
+    const card = document.createElement('div');
+    card.className = 'card ' + cls;
+    card.innerHTML =
+      '<div class="crow">' + photo +
+        '<div class="pinfo">' +
+          '<div class="pnum">№ '+p.id+' · '+esc(p.cat)+'</div>' +
+          '<div class="porg">'+esc(p.org)+'</div>' +
+          '<div class="pfio">'+esc(p.fio)+'</div>' +
+          (meta ? '<div class="pmeta">'+meta+'</div>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="btns">' +
+        '<button class="sbtn '+(s==='came'?'on-came':'')+'" onclick="setStatus('+p.id+',\'came\')">Келди</button>' +
+        '<button class="sbtn '+(s==='sub'?'on-sub':'')+'"  onclick="setStatus('+p.id+',\'sub\')">Ўрнига вакил</button>' +
+        '<button class="sbtn '+(s==='no'?'on-no':'')+'"    onclick="setStatus('+p.id+',\'no\')">Келмади</button>' +
+      '</div>' + mark +
+      '<textarea class="cmt" placeholder="Изоҳ (ким келди, лавозими, сабаби...)" ' +
+        'oninput="setComment('+p.id+',this.value)">'+esc(rec.comment||'')+'</textarea>';
+    // расм топилмаса — аватарга алмаштирамиз
+    const im = card.querySelector('img.photo');
+    if(im) im.addEventListener('error', function(){
+      const d = document.createElement('div');
+      d.className = 'nophoto'; d.textContent = '👤';
+      this.replaceWith(d);
+    });
+    grid.appendChild(card);
+  });
+  if(shown === 0) grid.innerHTML = '<div class="empty">Ҳеч нарса топилмади</div>';
+}
+
+/* Изоҳ ёзилаётганда қайта чизиш курсорни йўқотмаслиги учун */
+let pendingRender = false;
+function safeRender(){
+  const ae = document.activeElement;
+  if(ae && ae.classList && ae.classList.contains('cmt')){ pendingRender = true; return; }
+  pendingRender = false; render();
+}
+document.addEventListener('focusout', e=>{
+  if(pendingRender && e.target.classList && e.target.classList.contains('cmt'))
+    setTimeout(safeRender, 100);
+});
+
+/* ═══════════════ ҲИСОБОТ ═══════════════ */
+function usedCats(){ return CAT_ORDER.filter(c => PERSONS.some(p => p.cat === c)); }
+
+function buildReport(){
+  const c = counts(), gen = new Date().toLocaleString('ru-RU');
+  const op = document.getElementById('op').value || '—';
+  let rows = '';
+  usedCats().forEach(cat=>{
+    const list = PERSONS.filter(p => p.cat === cat);
+    const cc = list.filter(p => (state[p.id]||{}).status === 'came').length;
+    rows += '<tr class="g"><td colspan="5">'+esc(cat)+' — '+list.length+' та (келди: '+cc+')</td></tr>';
+    list.forEach(p=>{
+      const rec = state[p.id] || {}; const s = rec.status || 'none';
+      const bcls = s==='came'?'b-came':s==='sub'?'b-sub':s==='no'?'b-no':'b-none';
+      rows += '<tr><td>'+p.id+'</td><td>'+esc(p.org)+'</td><td>'+esc(p.fio)+'</td>' +
+              '<td><span class="badge '+bcls+'">'+LABELS[s]+'</span>' +
+              (rec.time?'<br><small>'+esc(rec.time)+'</small>':'')+'</td>' +
+              '<td>'+esc(rec.comment||'')+'</td></tr>';
+    });
+  });
+  return '<div class="rtitle">ЙЎҚЛАМА ҲИСОБОТИ</div>' +
+    '<div class="rsub">'+esc(EVENT.title)+' · '+esc(EVENT.subtitle)+'<br>'+esc(EVENT.date)+
+      ' · Оператор: '+esc(op)+' · Тузилди: '+gen+'</div>' +
+    '<div class="rstats">' +
+      '<div class="rstat"><b>'+c.total+'</b>Жами</div>' +
+      '<div class="rstat" style="color:#2b9e49"><b>'+c.came+'</b>Келди</div>' +
+      '<div class="rstat" style="color:#c47700"><b>'+c.sub+'</b>Ўрнига вакил</div>' +
+      '<div class="rstat" style="color:#d32f24"><b>'+c.no+'</b>Келмади</div>' +
+      '<div class="rstat" style="color:#5b6b82"><b>'+c.none+'</b>Белгиланмаган</div>' +
+    '</div>' +
+    '<table><thead><tr><th style="width:34px">№</th><th style="width:26%">Ташкилот</th>' +
+    '<th>Ф.И.О.</th><th style="width:120px">Ҳолат</th><th style="width:24%">Изоҳ</th></tr></thead>' +
+    '<tbody>'+rows+'</tbody></table>';
+}
+function openReport(){
+  document.getElementById('report').innerHTML =
+    '<div class="rbtns">' +
+      '<button class="btn btn-prn" onclick="window.print()">🖨 Чоп этиш / PDF сақлаш</button>' +
+      '<button class="btn btn-exp" onclick="exportCSV()">📗 Excel (CSV)</button>' +
+      '<button class="btn btn-gray" onclick="closeReport()">← Орқага</button>' +
+    '</div>' + buildReport();
+  document.getElementById('report').style.display = 'block';
+  window.scrollTo(0,0);
+}
+function closeReport(){ document.getElementById('report').style.display = 'none'; }
+function printReport(){ openReport(); setTimeout(()=>window.print(), 250); }
+
+/* ═══════════════ ЭКСПОРТ / ИМПОРТ ═══════════════ */
+function download(name, text, type){
+  const blob = new Blob([text], {type: type||'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+}
+function exportCSV(){
+  const q = s => '"' + String(s||'').replace(/"/g,'""') + '"';
+  let csv = '﻿' + ['№','Тоифа','Ташкилот','Ф.И.О.','Телефон','Ҳолат','Вақт','Белгилади','Изоҳ']
+            .map(q).join(';') + '\r\n';
+  PERSONS.forEach(p=>{
+    const r = state[p.id] || {};
+    csv += [p.id, p.cat, p.org, p.fio, p.phone, LABELS[r.status||'none'], r.time||'', r.by||'', r.comment||'']
+           .map(q).join(';') + '\r\n';
+  });
+  download('yoqlama_'+new Date().toISOString().slice(0,10)+'.csv', csv, 'text/csv;charset=utf-8');
+}
+function exportJSON(){
+  saveLocal();
+  const out = {event: EVENT, operator: document.getElementById('op').value,
+               saved: new Date().toISOString(), records: {}};
+  PERSONS.forEach(p=>{ const r = state[p.id] || {};
+    out.records[p.id] = {org:p.org, fio:p.fio, status:r.status||null,
+                         comment:r.comment||'', time:r.time||'', by:r.by||'', ts:r.ts||0}; });
+  download('yoqlama_'+new Date().toISOString().slice(0,10)+'.json',
+           JSON.stringify(out, null, 2), 'application/json');
+}
+function importJSON(ev){
+  const f = ev.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = e=>{
+    try{
+      const o = JSON.parse(e.target.result);
+      if(o.operator) document.getElementById('op').value = o.operator;
+      const inc = {};
+      Object.keys(o.records||{}).forEach(id=>{ const rec = o.records[id];
+        inc[id] = {status:rec.status||null, comment:rec.comment||'', time:rec.time||'',
+                   by:rec.by||'', ts:rec.ts||Date.now()}; });
+      state = mergeRecords(state, inc);
+      saveLocal(); render(); schedulePush();
+      alert('Заҳира юкланди ва мавжуд маълумот билан бирлаштирилди.');
+    }catch(err){ alert('Файлни ўқишда хатолик.'); }
+  };
+  r.readAsText(f); ev.target.value = '';
+}
+
+/* ═══════════════ ИШГА ТУШИРИШ ═══════════════ */
+function initCats(){
+  const sel = document.getElementById('fcat');
+  usedCats().forEach(c=>{
+    const n = PERSONS.filter(p=>p.cat===c).length;
+    const o = document.createElement('option');
+    o.value = c; o.textContent = c + ' (' + n + ')';
+    sel.appendChild(o);
+  });
+}
+document.getElementById('h-title').textContent = 'Тадбир йўқлама тизими';
+document.getElementById('h-sub').textContent = EVENT.title + ' · ' + EVENT.subtitle + ' · ' + EVENT.date;
+document.title = 'Йўқлама — ' + EVENT.date;
+loadLocal();
+initCats();
+document.getElementById('op').value = operator;
+render();
+startSync();
+document.getElementById('modal').addEventListener('click', e=>{ if(e.target.id==='modal') closeSettings(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeSettings(); closeReport(); } });
+window.addEventListener('online',  ()=>startSync());
+window.addEventListener('offline', ()=>setSync('err','Интернет йўқ'));
+/* Ctrl+P тўғридан-тўғри босилса ҳам ҳисобот чиқсин */
+window.addEventListener('beforeprint', ()=>{
+  const r = document.getElementById('report');
+  if(!r.innerHTML.trim()) r.innerHTML = buildReport();
+});
+</script>
+</body>
+</html>
