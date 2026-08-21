@@ -199,6 +199,15 @@ let state = {};        // { id: {status, comment, time, by, ts} }
 let operator = '';
 let cfg = {owner:'OnlyOneXXI', repo:'yoqlama-data', path:'attendance.json', branch:'main', token:''};
 let syncTimer = null, pushTimer = null, syncing = false;
+let syncStarted = 0, needResync = false;
+
+/* fetch 15 сониядан кейин узилади — осилиб қолмаслик учун */
+function fetchT(url, opts){
+  const ac = new AbortController();
+  const t = setTimeout(()=>ac.abort(), 15000);
+  return fetch(url, Object.assign({}, opts, {signal: ac.signal}))
+         .finally(()=>clearTimeout(t));
+}
 
 /* ═══════════════ ЛОКАЛ САҚЛАШ ═══════════════ */
 function saveLocal(){
@@ -263,7 +272,7 @@ function mergeRecords(remote, local){
   return out;
 }
 async function ghRead(){
-  const r = await fetch(ghUrl()+`?ref=${cfg.branch}&_=${Date.now()}`, {headers: ghHeaders(), cache:'no-store'});
+  const r = await fetchT(ghUrl()+`?ref=${cfg.branch}&_=${Date.now()}`, {headers: ghHeaders(), cache:'no-store'});
   if(r.status === 404) return {records:{}, sha:null};
   if(r.status === 401) throw new Error('Токен нотўғри ёки муддати тугаган (401)');
   if(r.status === 403) throw new Error('Рухсат йўқ ёки лимит (403)');
@@ -278,35 +287,46 @@ async function ghWrite(records, sha){
   const body = {message:`йўқлама: ${operator||'аноним'} — ${new Date().toLocaleString('ru-RU')}`,
                 content: b64enc(JSON.stringify(payload, null, 1)), branch: cfg.branch};
   if(sha) body.sha = sha;
-  const r = await fetch(ghUrl(), {method:'PUT', headers: Object.assign({'Content-Type':'application/json'}, ghHeaders()),
-                                  body: JSON.stringify(body)});
+  const r = await fetchT(ghUrl(), {method:'PUT', headers: Object.assign({'Content-Type':'application/json'}, ghHeaders()),
+                                   body: JSON.stringify(body)});
   if(r.status === 409 || r.status === 422) return 'conflict';
   if(!r.ok) throw new Error('GitHub PUT '+r.status);
   return 'ok';
 }
 async function syncNow(manual){
-  if(!ghReady()){ setSync('off','Синхронизация йўқ'); return; }
-  if(syncing) return;
-  syncing = true; setSync('busy','Синхронлашмоқда…');
+  if(!ghReady()){ setSync('err','Токен йўқ — махсус ҳавола орқали киринг'); return; }
+  if(syncing){
+    if(Date.now() - syncStarted < 25000){ needResync = true; return; }
+    // 25 сониядан ошди — осилиб қолган, мажбуран қайта бошлаймиз
+  }
+  syncing = true; syncStarted = Date.now();
+  setSync('busy','Синхронлашмоқда…');
   try{
-    for(let attempt=0; attempt<2; attempt++){
+    let done = false;
+    for(let attempt=0; attempt<5 && !done; attempt++){
       const {records:remote, sha} = await ghRead();
       const before = JSON.stringify(state);
       const merged = mergeRecords(remote, state);
       state = merged;
       if(JSON.stringify(state) !== before){ saveLocal(); safeRender(); }
       if(JSON.stringify(remote) === JSON.stringify(merged)){
-        setSync('ok','Синхрон ✓ '+nowStr()); break;               // ўзгариш йўқ — ёзмаймиз
+        done = true; break;                                       // ўзгариш йўқ — ёзмаймиз
       }
       const res = await ghWrite(merged, sha);
-      if(res === 'ok'){ setSync('ok','Синхрон ✓ '+nowStr()); break; }
-      // conflict — қайта уриниб кўрамиз
+      if(res === 'ok'){ done = true; break; }
+      // conflict — бироз кутиб, қайта уриниб кўрамиз
+      await new Promise(r=>setTimeout(r, 300 + Math.random()*700));
     }
-    if(manual) msg('Синхронизация муваффақиятли.');
+    if(done){ setSync('ok','Синхрон ✓ '+nowStr()); if(manual) msg('Синхронизация муваффақиятли.'); }
+    else{ setSync('err','Банд — қайта уринилади'); }
   }catch(e){
-    setSync('err','Хато: '+e.message);
-    if(manual) msg('❌ '+e.message);
-  }finally{ syncing = false; }
+    const t = (e && e.name === 'AbortError') ? 'Интернет секин — қайта уринилади' : 'Хато: '+e.message;
+    setSync('err', t);
+    if(manual) msg('❌ ' + t);
+  }finally{
+    syncing = false;
+    if(needResync){ needResync = false; setTimeout(()=>syncNow(false), 500); }
+  }
 }
 function schedulePush(){
   if(!ghReady()) return;
@@ -315,9 +335,9 @@ function schedulePush(){
 }
 function startSync(){
   clearInterval(syncTimer);
-  if(!ghReady()){ setSync('off','Синхронизация йўқ'); return; }
+  if(!ghReady()){ setSync('err','Токен йўқ — махсус ҳавола орқали киринг'); return; }
   syncNow(false);
-  syncTimer = setInterval(()=>syncNow(false), 10000); // ҳар 10 сонияда
+  syncTimer = setInterval(()=>syncNow(false), 5000);  // ҳар 5 сонияда
 }
 
 /* ═══════════════ СОЗЛАМАЛАР ═══════════════ */
@@ -548,6 +568,10 @@ document.getElementById('modal').addEventListener('click', e=>{ if(e.target.id==
 document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeSettings(); closeReport(); } });
 window.addEventListener('online',  ()=>startSync());
 window.addEventListener('offline', ()=>setSync('err','Интернет йўқ'));
+/* Телефон экрани очилганда / вкладкага қайтганда — дарҳол синхронлаймиз
+   (фон режимида браузер таймерларни секинлаштиради) */
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) syncNow(false); });
+window.addEventListener('focus', ()=>syncNow(false));
 /* Ctrl+P тўғридан-тўғри босилса ҳам ҳисобот чиқсин */
 window.addEventListener('beforeprint', ()=>{
   const r = document.getElementById('report');
